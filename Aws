@@ -1,0 +1,5 @@
+Several techniques are employed for text data extraction.
+Rule-based systems use predefined patterns and rules (often regular expressions) to locate and extract specific information.
+Machine learning methods, particularly Natural Language Processing (NLP), offer more flexibility.
+These models can be trained on examples to learn how to identify and extract relevant entities, even from varied or complex sentence structures. 
+Hybrid approaches combine rule-based and machine learning techniques for enhanced accuracy and robustness.
