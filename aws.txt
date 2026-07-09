@@ -1,0 +1,290 @@
+cause:
+ERROR: database "v310awsgoldqa" is used by an active logical replication slot
+DETAIL:  There are 2 active slots.
+------------------------------
+solution:
+
+Before drop replication slots make sure that dms tasks are stopped:
+===================================================================
+All queries will check at postgres level only
+
+To check active sessions use below query:
+
+select * from pg_stat_activity where datname='c32bjart';
+
+------------------------
+To kill active sessions use below query:
+
+select pg_terminate_backend(22886);    -->use pid number
+
+------------------------
+To check replication slots use below query:
+
+select * from pg_replication_slots  where database='v310awsngstagegoldqa';
+ 
+--------------------------
+before kill replication  slot restart dms and then stop it again then kill it 
+
+To kill replication slots use below query:
+
+select pg_drop_replication_slot('ca4shmq2cytwehqv_13499947_ecefae59_4cae_4e3d_897d_a27af3e5cc5b'); use slotname in singlequotes
+
+------------------------------------
+postgres=> select * from pg_stat_activity where datname='vitechslobfordigital';
+  datid  |       datname        | pid  | leader_pid | usesysid | usename  |     application_name      | client_addr | client_hostname | client_port |
+ backend_start         | xact_start | query_start | state_change | wait_event_type | wait_event | state | backend_xid | backend_xmin | query_id | query |
+   backend_type
+---------+----------------------+------+------------+----------+----------+---------------------------+-------------+-----------------+-------------+--------
+-----------------------+------------+-------------+--------------+-----------------+------------+-------+-------------+--------------+----------+-------+----
+-----------------------
+ 4016161 | vitechslobfordigital | 2026 |            |       10 | rdsadmin | pglogical manager 4016161 |             |                 |             | 2024-06
+-18 02:41:15.985269-04 |            |             |              | Extension       | Extension  |       |             |              |          |       | pgl
+ogical manager 4016161
+(1 row)
+
+postgres=> select pg_terminate_backend(2026);
+ERROR:  must be a superuser to terminate superuser process
+
+vitechslobfordigital=> drop extension pglogical;
+DROP EXTENSION
+
+postgres=> drop database vitechslobfordigital;
+
+DROP DATABASE
+============================================
+
+Please disable auditing on target db
+
+Disabling auditing at cluster level not database level so copy the target endpoint cluster name 
+Go to aws console--> Go to databases(Rds) -->search with cluster name-->click on writer endpoint -->go to configuration-->click on parameter group--> parameter group will open in new tab here search aud -->if here pgaudit.log value is ddl,role edit parameters and keep it to none then save changes (refresh the databses page it will show applying when we see in sync at parameter group  that means audit disable) 
+
+==============================================
+
+unzip awscliv2.zip  -->available in bers(/root) --v3locity
+sudo ./aws/install -- update
+
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update
+====================================
+
+SELECT database, redo_lsn, slot_name,restart_lsn,  round((redo_lsn-restart_lsn) / 1024 / 1024 / 1024, 2) AS GB_behind, active_pid FROM pg_control_checkpoint(), pg_replication_slots;
+
+
+select 'select pg_terminate_backend( '||pid ||');' as kill_cmd, (now() - query_start) as query_time_taken,* from pg_stat_activity where xact_start is not null and state not ilike 'idle%' and (now() - query_start) > interval '5 min';   ---original  long running 
+
+
+select client_addr,client_hostname,query,state from pg_stat_activity where pid='24588';  -->to check IP address on which sessions running 
+
+
+select (now() - query_start) as query_time_taken, pid,usename,state from pg_stat_activity where xact_start is not null and (now() - query_start) > interval '5 min' order by 1 desc ;
+
+
+select pg_cancel_backend(27810);  -->to kill particular sql using pid of that sql( copy sql from console or stat_activity once restore done we need to add manually).
+
+
+select pg_cancel_backend(pidno);
+=================================================
+When we get IAM roles export or import issues do as follows(https://jira.vitechinc.com/jira/browse/VCS-76481)
+
+just add IAm roles 1199-s3-export-role and 1199-s3-import-role added in 1199 clusters
+
+=========================================================
+
+select count(*) from pg_stat_user_tables  where last_analyze is  null ; -->vacuum
+
+nohup vacuumdb -h "mtrsprod-cluster.cluster-ctpissyob817.us-east-1.rds.amazonaws.com" -j 6 -d mtrsprod --analyze --verbose > /u02/backup/mtrsprod_vacuum_082325.log 2>&1 &   --->parallel
+
+=================================================
+#################BLOCKING SESSIONS 	IN POSTGRES###############################
+
+SELECT blocked_activity.datname as database_name, blocked_locks.pid AS blocked_pid, blocked_activity.usename AS blocked_user, blocking_locks.pid AS blocking_pid, blocking_activity.usename AS blocking_user, blocked_activity.query AS blocked_statement, blocking_activity.query AS current_statement_in_blocking_process, blocked_activity.application_name AS blocked_application, blocking_activity.application_name AS blocking_application FROM pg_catalog.pg_locks blocked_locks JOIN pg_catalog.pg_stat_activity blocked_activity ON blocked_activity.pid = blocked_locks.pid JOIN pg_catalog.pg_locks blocking_locks ON blocking_locks.locktype = blocked_locks.locktype AND blocking_locks.DATABASE IS NOT DISTINCT FROM blocked_locks.DATABASE AND blocking_locks.relation IS NOT DISTINCT FROM blocked_locks.relation AND blocking_locks.page IS NOT DISTINCT FROM blocked_locks.page AND blocking_locks.tuple IS NOT DISTINCT FROM blocked_locks.tuple AND blocking_locks.virtualxid IS NOT DISTINCT FROM blocked_locks.virtualxid AND blocking_locks.transactionid IS NOT DISTINCT FROM blocked_locks.transactionid AND blocking_locks.classid IS NOT DISTINCT FROM blocked_locks.classid AND blocking_locks.objid IS NOT DISTINCT FROM blocked_locks.objid AND blocking_locks.objsubid IS NOT DISTINCT FROM blocked_locks.objsubid AND blocking_locks.pid != blocked_locks.pid JOIN pg_catalog.pg_stat_activity blocking_activity ON blocking_activity.pid = blocking_locks.pid WHERE NOT blocked_locks.GRANTED;
+====================================================
+Caused by: org.postgresql.util.PSQLException: FATAL: no pg_hba.conf entry for host "10.192.194.155", user "dbo", database "ufcwv10qa", no encryption at
+
+solution :- ask them to use latest postgresql jar (or) disable the rds.force_ssl to 0 
+
+1.SSL parameter is enabled, please disable it-->above parameter we need to change
+
+2.Disable Auditing--> search pgauditlog-->ddl_role --keep to none 
+
+3.Disable AK_HASH related job --> we need to comment /home/postgres/dba/schedule_jobs_ALL_RDS.ksh on crontab -l once done uncomment it
+===================================================
+-->time zone update in rds cluster 
+
+go to cluster parameter group -->search timezone then edit -->change it and check in database (for ESt America/New_York and America/Chicago for cst  and America/Los_Angeles-->PDT --> we can search in google as well to get time in auora 
+
+#####To check the timezone on RDS#######
+
+lfgtest=> select current_timestamp from dual;
+
+ilsurscfg=> show timezone;
+
+ilsurscfg=> select * from pg_timezone_names where name='America/New_York';
+       name       | abbrev | utc_offset | is_dst
+------------------+--------+------------+--------
+ America/New_York | EST    | -05:00:00  | f
+(1 row)
+=====================================
+nohup python3 /home/postgres/dba/v3_db_clone_utility_dms_test.py -p v3testing-cluster.cluster-ctcsve9jprsn.us-east-1.rds.amazonaws.com -s v3test -t v3test2 -y v3testing-cluster.cluster-ctcsve9jprsn.us-east-1.rds.amazonaws.com -m kgajjala@vitechinc.com -c V310PRODUCT_V3LOCITY_DEV -r us-east-1 -f Y &
+
+nohup python3 /home/postgres/dba/v3_db_pgrestore_utility_dms_test.py -e v3testing-cluster.cluster-ctcsve9jprsn.us-east-1.rds.amazonaws.com -t v3test2 -b /u02/backup/v310awsgold_bkp_202509261104 -m kgajjala@vitechinc.com -c V310PRODUCT_V3LOCITY_DEV -i ALL -r us-east-1 -f Y &
+
+nohup python3 /home/postgres/dba/rds_cluster_clone_utility_dms_test.py -p v310awsgolddev-cluster -s v310awsgolddevbkp -t v3test -y v3testing-cluster -m kgajjala@vitechinc.com -c V310PRODUCT_V3LOCITY_DEV -r us-east-1 -f Y &
+
+nohup python3 /home/postgres/dba/restore_rds_from_snapshot_dms_test.py -s rds:v3testing-cluster-2025-09-29-07-32 -tc v3testing-cluster -t v3test -m kgajjala@vitechinc.com -c V310PRODUCT_V3LOCITY_DEV -r us-east-1 -f Y 
+
+
+-f Y -->mans it will start immediately if we need precheck then -f N once done then keep -f Y
+=====================================
+
+select (now() - query_start)  as query_time_taken,* from pg_stat_activity where xact_start is not null and (now() - query_start) > interval '5 min';
+
+
+Top tables command in postgres:-
+----------------------------
+
+select schemaname as table_schema,
+    relname as table_name,
+    pg_size_pretty(pg_total_relation_size(relid)) as total_size,
+    pg_size_pretty(pg_relation_size(relid)) as data_size,
+    pg_size_pretty(pg_total_relation_size(relid) - pg_relation_size(relid))
+      as external_size
+from pg_catalog.pg_statio_user_tables
+order by pg_total_relation_size(relid) desc,
+         pg_relation_size(relid) desc
+limit 10;
+
+
+========================
+Turn off auto vacuum on tables in postgres:-
+------------------
+
+SELECT reloptions FROM pg_class WHERE relname = 'table_name';
+
+Eg:-
+---
+paclproddev=> select reloptions from pg_class where relname='disbursement_request';
+         reloptions
+----------------------------
+ {autovacuum_enabled=false}
+
+ 
+ALTER TABLE table_name SET (autovacuum_enabled = false);
+
+======================================= 
+
+
+#################long running sessions ###################
+SELECT pg_terminate_backend(kl.pid), kl.pid as blocking_pid,ka.usename as blocking_user,ka.query as blocking_query,bl.pid as blocked_pid,a.usename as blocked_user,a.query as blocked_query,to_char(age(now(), a.query_start),'HH24h:MIm:SSs') as age FROM pg_catalog.pg_locks bl JOIN pg_catalog.pg_stat_activity a ON bl.pid = a.pid JOIN pg_catalog.pg_locks kl ON bl.locktype = kl.locktype and bl.database is not distinct from kl.database and bl.relation is not distinct from kl.relation and bl.page is not distinct from kl.page and bl.tuple is not distinct from kl.tuple and bl.virtualxid is not distinct from kl.virtualxid and bl.transactionid is not distinct from kl.transactionid and bl.classid is not distinct from kl.classid and bl.objid is not distinct from kl.objid and bl.objsubid is not distinct from kl.objsubid and bl.pid <> kl.pid JOIN pg_catalog.pg_stat_activity ka ON kl.pid = ka.pid WHERE kl.granted and not bl.granted and ka.datname=current_database()ORDER BY a.query_start;
+
+----Run above command by connecting the database to see blocking sessions  and run below command to kill those sessions 
+
+select pg_terminate_backend(26795);
+
+
+select (now() - query_start) as query_time_taken, pid,usename,state from pg_stat_activity where xact_start is not null and (now() - query_start) > interval '5 min' order by 1 desc ;  
+
+-->the above query to know which queries are running from long time 
+=====================================================================
+
+##############creating the DB instance using aws cli commansds#############
+
+aws rds create-db-instance --db-instance-identifier bersepr --db-cluster-identifier bersepr-cluster --region us-east-1 --db-instance-class db.r6g.xlarge --engine aurora-postgresql --db-parameter-group-name aurora-postgresql-13-bersepr --copy-tags-to-snapshot --enable-iam-database-authentication --enable-performance-insights --db-subnet-group-name bers-uat-subnet-group
+
+======================================================================
+###########code commit#########################
+
+python3 /home/postgres/v3_db_sync_scripts.py -c clone -r v3dba_dev_utility_scripts -m kgajjala@vitechinc.com -l /home/postgres/dev_utility_scripts
+
+mkdir -p /home/postgres/dev_utility_scripts
+
+/v3locitydev-upp-db-bucket----->v3locitydev canada bucket
+====================================================================
+
+####To check wheather v3locity backups or refreshes dbstatus success or not ####
+
+v3locity aws console-->aws systems manager -->Run command-->command history 
+
+===============================================================================
+2022-02-08 16:13:22,385 INFO: pg_dump: error: query failed: FATAL:  terminating connection due to administrator command
+2022-02-08 16:13:22,385 INFO: Status : FAILED
+
+That means they scheduled two refreshes with same source at a time so ask them to reshedule once other refresh done 
+
+====================================================================================
+
+SNAPSHOT STANDBY:
+----------------
+
+ALTER DATABASE RECOVER MANAGED STANDBY DATABASE CANCEL;
+SHUTDOWN IMMEDIATE;
+STARTUP MOUNT;
+ALTER DATABASE CONVERT TO SNAPSHOT STANDBY;
+ALTER DATABASE OPEN;
+
+STANDBY MODE:
+-------------
+
+SHUTDOWN IMMEDIATE;
+STARTUP MOUNT;
+ALTER DATABASE CONVERT TO PHYSICAL STANDBY;
+SHUTDOWN IMMEDIATE;
+STARTUP NOMOUNT;
+ALTER DATABASE MOUNT STANDBY DATABASE;
+ALTER DATABASE RECOVER MANAGED STANDBY DATABASE USING CURRENT LOGFILE DISCONNECT;
+
+
+
+first group is to bring up DR 
+2nd group is for when they are done testing and put DR back in sync mode
+all to be run in DR instance
+
+Alter system set log_archive_dest_state_3= defer;
+
+run above line ( in black) in primary before running the 'first group' mentioned above
+
+
+Alter system set log_archive_dest_state_2= enable;
+
+when going back to sync, run above line in black on primary and then run 'second group';
+
+=================================================================================
+
+
+https://v3.vitechinc.com/confluence/display/V3DBA/Creation+of+PostgreSQL+database+on+Amazon+RDS 
+
+CREATE USER v3opsdatabasedeployments WITH LOGIN;
+
+GRANT rds_iam TO v3opsdatabasedeployments;
+
+GRANT dbo TO v3opsdatabasedeployments;
+
+ALTER ROLE v3opsdatabasedeployments SET search_path = dbo, dbadmin, security_admin, "$user", public;
+
+=================================================================
+10.212.2.34     ops team scheduled logs in this vm 
+
+
+=============================================================
+###################creation of read only user in v3locity :################
+
+/bin/ksh /home/postgres/dba/pg_user_secrets_ssm.ksh -c MTRS -u rveta -s mtrsuattest-cluster -g v3readonlyrole,dbo -r us-east-1 -j VCS-16556 -l Y -m vgajagoni@vitechinc.com -x N -y N -z N
+
+====================================================================
+ERROR:EVENT TRIGGER tddl_on_function_event  does not exit
+----
+Resolution  ==>  V3DBA team need to create object running below statements.
+
+CREATE EVENT TRIGGER tddl_on_function_event ON DDL_COMMAND_END
+    WHEN TAG IN ('CREATE FUNCTION', 'CREATE TRIGGER', 'CREATE VIEW')
+    EXECUTE PROCEDURE p_on_function_event();
+ALTER EVENT TRIGGER tddl_on_function_event
+    OWNER TO postgres;
+
+===================================================================
